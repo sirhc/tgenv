@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+[ -n "${TGENV_DEBUG}" ] && set -x
+source "${TGENV_ROOT}/libexec/helpers"
+
+[ "${#}" -gt 1 ] && error_and_die "usage: tgenv build <version>"
+
+declare version
+
+if [ -n "${1}" ]; then
+  version="${1}"
+else
+  error_and_die "Version is not specified"
+fi
+
+dst_path="${TGENV_ROOT}/versions/${version}"
+if [ -f "${dst_path}/terragrunt" ]; then
+  echo "Terragrunt v${version} is already installed"
+  exit 0
+fi
+
+info "Building Terragrunt v${version}"
+
+version_url="github.com/gruntwork-io/terragrunt@v${version}"
+
+cache_path="${XDG_CACHE_HOME:-${HOME}/.cache}/tgenv"
+mkdir -p "${cache_path}" || error_and_die "Failed to make directory ${cache_path}"
+
+export GOPATH="${cache_path}"
+
+{
+  if ! go install "${version_url}" 2>/dev/null; then
+    : # not sure if I'll need any of this yet
+    #set -e
+    #cd "${cache_path}/pkg/mod/${version_url}";
+    #chmod u+w . go.mod go.sum;
+    #if [ -d vendor ]; then
+    #  chmod u+w vendor vendor/modules.txt;
+    #fi
+    ## In case we're using goenv.
+    #rm -f .go-version
+    ## Older version of this gives build error.
+    #go get golang.org/x/sys/unix;
+    #go mod vendor;
+    #go install .;
+  fi
+} || error_and_die 'Build failed'
+
+mkdir -p "${dst_path}" || error_and_die "Failed to make directory ${dst_path}"
+mv "${cache_path}/bin/terragrunt" "${dst_path}/." || error_and_die 'Build failed'
+
+info "Installation of terragrunt v${version} successful"
